@@ -1,0 +1,277 @@
+{% extends 'images/base.html' %}
+{% load i18n l10n static %}
+
+{% block title %}{{template.name}} - {{block.super}}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.3/cropper.min.css" integrity="sha256-4K4sVP6FE6wqXLdywOM27rWnx7xLHZspN5Ufd4wV/zo=" crossorigin="anonymous" />
+
+<style>
+main {
+  display: grid;
+  grid-template-columns: 45% 50px 45%;
+  grid-template-rows: 50vh 1fr;
+  justify-content: center;
+  grid-template-areas:
+    "input buttons output"
+    "form form form";
+}
+progress {
+  width: 100%;
+  height: 2px;
+}
+
+.image-input {
+  grid-area: input;
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  place-self: stretch;
+}
+
+table.table {
+  display: table;
+}
+
+.img-container {
+  overflow: hidden;
+}
+
+image#image, #result-img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.image-controls > .btn {
+  margin: 0.3em;
+}
+
+.image-input > .image-controls {
+  display: flex;
+}
+.buttons {
+  grid-area: buttons;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  place-self: center stretch;
+}
+.image-output {
+  grid-area: output;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+
+}
+.text-form {
+  grid-area: form;
+}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="image-input">
+    <img  id="image" src="{% static 'empty.png' %}">
+    <div class="image-controls">
+    <label class="btn label btn-a btn-sm" data-toggle="tooltip" title="Change your avatar">
+      <i class="fa fa-upload"></i> 
+      <input type="file" class="sr-only" id="input" name="image" accept="image/*">
+    </label>
+      <button class="btn btn-b btn-sm" onclick="cropper.rotate(45)">
+        <i class="fa fa-undo"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="buttons">
+
+    <button class="btn btn-b btn-sm" id="generate-img">
+      <i class="fa fa-arrow-right"></i>
+    </button>
+    <a href="#" id="download" class="btn btn-a btn-sm">
+      <i class="fa fa-download"></i>
+    </a>
+  </div>
+
+  <div class="image-output">
+    <progress value="0" max="100" id="progress" class="hidden"></progress>
+    <div class="img-container">
+      <img class="responsive" id="result-img" />
+    </div>
+  </div>
+
+  <form method="POST" id="text-form" class="text-form">
+    {% csrf_token %}
+    <input type="hidden" name="template_pk" value="{{template.pk}}">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>
+            Text
+          </th>
+          <th>
+            Input
+          </th>
+          <th>
+            font size
+          </th>
+          <th>
+            font color
+          </th>
+          <th>
+            background color
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for overlay in template.text_overlays.all %}
+        <tr>
+
+          <td>
+            {{overlay.name}}
+          </td>
+
+          <td>
+            <input type="text" id="id_{{overlay.pk}}" name="text_{{overlay.pk}}"/>
+          </td>
+
+          <td>
+            {% if overlay.override_font_size %}
+            <input type="number" id="size_{{overlay.pk}}" name="size_{{overlay.pk}}" value="{{overlay.font_size}}"/>
+            {% else %}
+            {{overlay.font_size}}
+            {% endif %}
+          </td>
+
+          <td>
+            {% if overlay.override_font_color %}
+            <input type="color" id="font_color_{{overlay.pk}}" name="font_color_{{overlay.pk}}" value="{{overlay.font_color}}"/>
+            {% else %}
+            {{overlay.font_color}}
+            {% endif %}
+          </td>
+
+          <td>
+            {% if overlay.override_background_color %}
+            <input type="color" id="background_color_{{overlay.pk}}" name="background_color_{{overlay.pk}}" value="{{overlay.background_color}}"/>
+            {% else %}
+            {{overlay.background_color}}
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+  <div class="back">
+<a href="{% url 'template_list' %}" class="btn btn-d btn-sm">
+<i class="fa fa-arrow-left"></i>
+  Back
+</a>
+  </div>
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.3/cropper.min.js" integrity="sha256-MC4uFtk+Y9Go032LCZFhSFEc2IjwcsGkkJaMtqmfc7A=" crossorigin="anonymous"></script>
+<script>
+
+  var image = document.getElementById('image');
+  var input = document.getElementById('input');
+
+  var progress = document.getElementById('progress');
+
+  var options = {
+    aspectRatio: {{template.ratio|unlocalize}},
+    viewMode: 1,
+    dragMode: 'move',
+  };
+  var cropper = new Cropper(image, options);
+
+input.addEventListener('change', function (e) {
+	var files = e.target.files;
+	var done = function (url) {
+		image.src = url;
+		cropper.destroy();
+		cropper = new Cropper(image, options);
+	};
+	var reader;
+	var file;
+	var url;
+
+	if (files && files.length > 0) {
+		file = files[0];
+
+		if (URL) {
+			done(URL.createObjectURL(file));
+		} else if (FileReader) {
+			reader = new FileReader();
+			reader.onload = function (e) {
+				done(reader.result);
+			};
+			reader.readAsDataURL(file);
+		}
+	}
+});
+function generate_img(){
+	canvas = cropper.getCroppedCanvas({
+		width: {{template.width}},
+		height: {{template.height}},
+	});
+	canvas.toBlob(function (blob) {
+		var formData = new FormData(document.getElementById('text-form'));
+
+		progress.value = 0;
+		formData.append('source_img', blob);
+		var request = new XMLHttpRequest();
+		request.responseType = "blob";
+		request.upload.addEventListener("progress", function(e){
+			if (e.lengthComputable) {
+				var percentComplete = e.loaded / e.total * 70;
+				progress.value = percentComplete;
+			}
+			return;
+		});
+		request.addEventListener("progress", function(e){
+			if (e.lengthComputable) {
+				var percentComplete = e.loaded / e.total * 30 + 70;
+				progress.value = percentComplete;
+			}
+
+			return;
+		});
+		request.addEventListener("load", function(){
+			var urlCreator = window.URL || window.webkitURL;
+			var imageUrl = urlCreator.createObjectURL(this.response);
+			var link = document.getElementById('download');
+      var fn =  Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      link.setAttribute("href", imageUrl);
+      link.setAttribute("download", '{{template.name}}_' + fn + '.png');
+
+      document.getElementById('result-img').src = imageUrl;
+      progress.classList.add('hidden');
+    });
+
+    request.open("POST", "{% url 'generate_image' template.pk %}");
+    request.send(formData);
+  });
+}
+
+  document.getElementById('generate-img').addEventListener('click', function(){
+    generate_img();
+  });
+
+  document.getElementById('text-form').addEventListener('submit', function(event){
+    event.preventDefault();
+    generate_img();
+  });
+
+</script>
+
+{% endblock %}

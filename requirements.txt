@@ -1,2 +1,4 @@
 psycopg2-binary
 Django
+django-colorfield
+Pillow

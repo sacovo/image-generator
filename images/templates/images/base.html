@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Image Generator{% endblock %}</title>
+
+  <link rel="stylesheet" href="{% static 'min.css' %}" type="text/css">
+<style>
+main {
+  min-height: 80vh;
+  width: min(92vw, 1200px);
+  margin: auto;
+}
+footer {
+  display: flex;
+  height: 20vh;
+  background: black;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+footer a, footer a:visited {
+  color: white;
+}
+</style>
+
+  {% block styles %}
+
+  {% endblock %}
+
+</head>
+<body>
+  {% block content %}
+
+  {% endblock %}
+<footer>
+  <div>
+    <a href="https://github.com/sacovo/image-generator">
+Source Code on Gihtub
+    </a>
+    
+  </div>
+</footer>
+
+  {% block scripts %}
+
+  {% endblock %}
+  
+</body>
+</html>
