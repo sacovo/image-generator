@@ -42,6 +42,11 @@ table.table {
 image#image, #result-img {
   max-width: 100%;
   max-height: 100%;
+  margin: auto;
+}
+
+input {
+  background-color: white;
 }
 .image-controls > .btn {
   margin: 0.3em;
@@ -62,10 +67,51 @@ image#image, #result-img {
   width: 100%;
   display: flex;
   flex-direction: column;
-
 }
+
+.img-container {
+  display: flex;
+  background-color: #ddd;
+    height: 100%;
+}
+
 .text-form {
   grid-area: form;
+}
+
+
+@media (max-width: 600px) {
+  body {
+    max-width: 100vw;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+    justify-content: center;
+    grid-template-areas:
+      "input"
+      "buttons"
+      "output"
+      "form";
+  }
+  form {
+    overflow-x: auto;
+    max-width: 100vw;
+  }
+
+  .buttons {
+    flex-direction: row;
+  }
+  .buttons .btn  {
+    margin: 0.3em;
+  }
+
+}
+
+.hidden {
+  display: none;
 }
 
 </style>
@@ -76,10 +122,10 @@ image#image, #result-img {
   <div class="image-input">
     <img  id="image" src="{% static 'empty.png' %}">
     <div class="image-controls">
-    <label class="btn label btn-a btn-sm" data-toggle="tooltip" title="Change your avatar">
-      <i class="fa fa-upload"></i> 
-      <input type="file" class="sr-only" id="input" name="image" accept="image/*">
-    </label>
+      <label class="btn label btn-a btn-sm" data-toggle="tooltip" title="Change your avatar">
+        <i class="fa fa-upload"></i> 
+        <input type="file" class="sr-only" id="input" name="image" accept="image/*">
+      </label>
       <button class="btn btn-b btn-sm" onclick="cropper.rotate(45)">
         <i class="fa fa-undo"></i>
       </button>
@@ -94,10 +140,13 @@ image#image, #result-img {
     <a href="#" id="download" class="btn btn-a btn-sm">
       <i class="fa fa-download"></i>
     </a>
+    <button class="btn btn-a btn-sm hidden" id="share-btn">
+      <i class="fa fa-share"></i>
+    </button>
   </div>
 
   <div class="image-output">
-    <progress value="0" max="100" id="progress" class="hidden"></progress>
+    <progress value="0" max="100" id="progress"></progress>
     <div class="img-container">
       <img class="responsive" id="result-img" />
     </div>
@@ -168,10 +217,10 @@ image#image, #result-img {
     </table>
   </form>
   <div class="back">
-<a href="{% url 'template_list' %}" class="btn btn-d btn-sm">
-<i class="fa fa-arrow-left"></i>
-  Back
-</a>
+    <a href="{% url 'template_list' %}" class="btn btn-d btn-sm">
+      <i class="fa fa-arrow-left"></i>
+      Back
+    </a>
   </div>
 </main>
 
@@ -192,76 +241,80 @@ image#image, #result-img {
     dragMode: 'move',
   };
   var cropper = new Cropper(image, options);
+  var blob = null;
 
-input.addEventListener('change', function (e) {
-	var files = e.target.files;
-	var done = function (url) {
-		image.src = url;
-		cropper.destroy();
-		cropper = new Cropper(image, options);
-	};
-	var reader;
-	var file;
-	var url;
+  input.addEventListener('change', function (e) {
+    var files = e.target.files;
+    var done = function (url) {
+      image.src = url;
+      cropper.destroy();
+      cropper = new Cropper(image, options);
+    };
+    var reader;
+    var file;
+    var url;
 
-	if (files && files.length > 0) {
-		file = files[0];
+    if (files && files.length > 0) {
+      file = files[0];
 
-		if (URL) {
-			done(URL.createObjectURL(file));
-		} else if (FileReader) {
-			reader = new FileReader();
-			reader.onload = function (e) {
-				done(reader.result);
-			};
-			reader.readAsDataURL(file);
-		}
-	}
-});
-function generate_img(){
-	canvas = cropper.getCroppedCanvas({
-		width: {{template.width}},
-		height: {{template.height}},
-	});
-	canvas.toBlob(function (blob) {
-		var formData = new FormData(document.getElementById('text-form'));
-
-		progress.value = 0;
-		formData.append('source_img', blob);
-		var request = new XMLHttpRequest();
-		request.responseType = "blob";
-		request.upload.addEventListener("progress", function(e){
-			if (e.lengthComputable) {
-				var percentComplete = e.loaded / e.total * 70;
-				progress.value = percentComplete;
-			}
-			return;
-		});
-		request.addEventListener("progress", function(e){
-			if (e.lengthComputable) {
-				var percentComplete = e.loaded / e.total * 30 + 70;
-				progress.value = percentComplete;
-			}
-
-			return;
-		});
-		request.addEventListener("load", function(){
-			var urlCreator = window.URL || window.webkitURL;
-			var imageUrl = urlCreator.createObjectURL(this.response);
-			var link = document.getElementById('download');
-      var fn =  Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-      link.setAttribute("href", imageUrl);
-      link.setAttribute("download", '{{template.name}}_' + fn + '.png');
-
-      document.getElementById('result-img').src = imageUrl;
-      progress.classList.add('hidden');
-    });
-
-    request.open("POST", "{% url 'generate_image' template.pk %}");
-    request.send(formData);
+      if (URL) {
+        done(URL.createObjectURL(file));
+      } else if (FileReader) {
+        reader = new FileReader();
+        reader.onload = function (e) {
+          done(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
   });
-}
+  function generate_img(){
+    canvas = cropper.getCroppedCanvas({
+      width: {{template.width}},
+      height: {{template.height}},
+    });
+    canvas.toBlob(function (blob) {
+      var formData = new FormData(document.getElementById('text-form'));
+
+      progress.value = 0;
+      formData.append('source_img', blob);
+      var request = new XMLHttpRequest();
+      request.responseType = "blob";
+      request.upload.addEventListener("progress", function(e){
+        if (e.lengthComputable) {
+          var percentComplete = e.loaded / e.total * 70;
+          progress.value = percentComplete;
+        }
+        return;
+      });
+      request.addEventListener("progress", function(e){
+        if (e.lengthComputable) {
+          var percentComplete = e.loaded / e.total * 30 + 70;
+          progress.value = percentComplete;
+        }
+
+        return;
+      });
+      request.addEventListener("load", function(){
+        var urlCreator = window.URL || window.webkitURL;
+        window.lastResponse = this.response;
+
+
+        var imageUrl = urlCreator.createObjectURL(this.response);
+        var link = document.getElementById('download');
+        var fn =  Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+        link.setAttribute("href", imageUrl);
+        link.setAttribute("download", '{{template.name}}_' + fn + '.png');
+
+        document.getElementById('result-img').src = imageUrl;
+        progress.classList.add('hidden');
+      });
+
+      request.open("POST", "{% url 'generate_image' template.pk %}");
+      request.send(formData);
+    });
+  }
 
   document.getElementById('generate-img').addEventListener('click', function(){
     generate_img();
@@ -271,6 +324,23 @@ function generate_img(){
     event.preventDefault();
     generate_img();
   });
+
+  if (navigator.share) {
+    const shareButton = document.getElementById('share-btn');
+    shareButton.classList.remove('hidden');
+    shareButton.addEventListener('click', function(event){
+      let filesArray = [new File([window.lastResponse], 'image.jpg', {type: 'image/jpeg'})];
+
+      if (navigator.canShare && navigator.canShare({files: filesArray})) {
+        navigator.share({
+          files: filesArray,
+          title: 'Your image',
+          text: 'Your text',
+        });
+      }
+    });
+  }
+
 
 </script>
 
